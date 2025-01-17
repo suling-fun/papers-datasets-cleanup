@@ -1,0 +1,21 @@
+# System files
+.DS_Store
+
+# Python compiled files
+*.pyc
+__pycache__/
+
+# Log files
+*.log
+
+# Environment files
+.env
+
+# Output directory
+/output/
+
+# Dataset files
+/Papers/
+
+# venv
+/venv/
