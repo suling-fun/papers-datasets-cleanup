@@ -12,6 +12,13 @@
 - `output/`: 存储处理后的数据集
 - `Changelog/`: 记录项目变更
 
+## 项目依赖
+
+- torch==2.5.1
+- torchvision==0.20.1
+- markitdown==0.0.1a3
+- marker-pdf==1.2.4
+
 ## .gitignore
 
 项目包含.gitignore文件，用于忽略以下文件类型：

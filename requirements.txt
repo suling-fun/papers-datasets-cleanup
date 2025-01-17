@@ -1,0 +1,4 @@
+torch==2.5.1
+torchvision==0.20.1
+markitdown==0.0.1a3
+marker-pdf==1.2.4
