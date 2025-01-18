@@ -26,6 +26,8 @@ def extract_paragraphs(file_path)->list[str]:
                 continue
             # 删除两个中文字符之间的空格
             para = ''.join([char for i, char in enumerate(para) if not (char == ' ' and '\u4e00' <= para[i-1] <= '\u9fff' and '\u4e00' <= para[i+1] <= '\u9fff')])
+            # 将两个中文字符之间的半角逗号“,”替换为全角逗号“，”
+            para = ''.join([char if not (char == ',' and '\u4e00' <= para[i-1] <= '\u9fff' and '\u4e00' <= para[i+1] <= '\u9fff') else '，' for i, char in enumerate(para)])
             merged.append(para)
             
         return merged
@@ -39,19 +41,22 @@ def extract_paragraphs(file_path)->list[str]:
     else:
         return ''
 
-def process_files(directory, output_csv):
+def process_files(directory):
     log_file = 'text_extraction.log'
-    with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile, \
-         open(log_file, 'w', encoding='utf-8') as log:
-        writer = csv.writer(csvfile)
-        writer.writerow(['text', 'is_human', 'field', 'paper_name'])
-        
+    with open(log_file, 'w', encoding='utf-8') as log:
         # Convert to absolute path and ensure it's a directory
         abs_directory = os.path.abspath(directory)
         if not os.path.isdir(abs_directory):
             log.write(f'Error: {abs_directory} is not a valid directory\n')
             return
             
+        # Create output directory if not exists
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Dictionary to store CSV writers for each field
+        field_writers = {}
+        
         for root, dirs, files in os.walk(abs_directory):
             for file in files:
                 if file.endswith(('.txt', '.doc', '.docx', '.md')):
@@ -64,14 +69,27 @@ def process_files(directory, output_csv):
                         # 提取 field 和 paper_name
                         field = os.path.basename(os.path.dirname(file_path))
                         paper_name = os.path.splitext(file)[0]
+                        
+                        # Create CSV writer for this field if not exists
+                        if field not in field_writers:
+                            csv_path = os.path.join(output_dir, f'datasets_{field}.csv')
+                            csvfile = open(csv_path, 'w', newline='', encoding='utf-8')
+                            writer = csv.writer(csvfile)
+                            writer.writerow(['text', 'is_human', 'field', 'paper_name'])
+                            field_writers[field] = (csvfile, writer)
+                        
+                        # Write data to corresponding CSV
                         for para in paragraphs:
-                            writer.writerow([para, 1, field, paper_name])
+                            field_writers[field][1].writerow([para, 1, field, paper_name])
                     except Exception as e:
                         log.write(f'Error processing {file_path}: {str(e)}\n')
+        
+        # Close all CSV files
+        for csvfile, _ in field_writers.values():
+            csvfile.close()
 
 if __name__ == '__main__':
     # Ensure input_dir points to the correct Papers directory
     input_dir = os.path.join(os.path.dirname(__file__), 'Papers')
-    output_csv = 'output/datasets.csv'
     
-    process_files(input_dir, output_csv)
+    process_files(input_dir)
