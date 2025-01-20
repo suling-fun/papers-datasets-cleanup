@@ -22,9 +22,9 @@ lm_04 = lm_config('openai/01-ai/Yi-1.5-34B-Chat-16K',)
 #dspy.configure(lm=lm)
 
 class Rewrite(dspy.Signature):
-    """将用给定的文本进行改写，使其文本风格更加学术，逻辑更加严谨，用词更加专业，结构更加清晰。"""
+    """使用相同的语言，改写用户给定的文本，使其文本风格更加学术化，逻辑更加严谨，用词更加专业，结构更加清晰。"""
     origin_text: str = dspy.InputField()
-    language: str = dspy.OutputField()
+    text_language: str = dspy.OutputField()
     rewrited_text: str = dspy.OutputField()
 
 def process_row(row, rewrite):
@@ -39,9 +39,12 @@ def process_row(row, rewrite):
         }
     return None
 
-def process_csv(input_path, output_path, max_workers=4):
+def process_csv(input_path, output_path, start_row: int = 0, end_row: int = 100, max_workers=4):
     # 读取原始csv文件
     original_df = pd.read_csv(input_path)
+
+    # 截取任意区间内的行
+    original_df = original_df.iloc[start_row:end_row]
     
     # 初始化rewrite模型
     def init_rewrite(models):
@@ -65,8 +68,12 @@ def process_csv(input_path, output_path, max_workers=4):
                 result = future.result()
                 if result:
                     new_rows.append(result)
+                    # 每50条数据缓存一次
+                    if len(new_rows) % 50 == 0:
+                        cache_df = pd.DataFrame(new_rows)
+                        cache_df.to_csv(output_csv, index=False)
                 pbar.update(1)
-    
+
     # 将新数据转换为DataFrame
     new_df = pd.DataFrame(new_rows)
 
@@ -74,6 +81,8 @@ def process_csv(input_path, output_path, max_workers=4):
     new_df.to_csv(output_path, index=False)
 
 if __name__ == '__main__':
-    input_csv = 'output/datasets_工程.csv'
-    output_csv = 'output/datasets_工程_processed.csv'
-    process_csv(input_csv, output_csv, max_workers=4)
+    start_row=1000
+    end_row=2000
+    input_csv = 'output/merged_output.csv'
+    output_csv = f'output/merged_output_processed_{start_row}_{end_row}.csv'
+    process_csv(input_csv, output_csv, start_row=start_row, end_row=end_row, max_workers=4)

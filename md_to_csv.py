@@ -15,12 +15,16 @@ def extract_paragraphs(file_path)->list[str]:
                 def is_mostly_chinese(text):
                     chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
                     return chinese_chars / len(text) > 0.5
-
-                # 根据语言决定抛弃条件
-                if is_mostly_chinese(para):
-                    return len(para) < 120
+                
+                # 根据结尾标点决定抛弃条件
+                if para[-1] in '。？！:：——》….?!':
+                    # 根据语言决定抛弃条件
+                    if is_mostly_chinese(para):
+                        return len(para) < 100
+                    else:
+                        return len(para.split()) < 50
                 else:
-                    return len(para.split()) < 60
+                    return True
 
             if should_discard_paragraph(para):
                 continue
@@ -91,5 +95,4 @@ def process_files(directory):
 if __name__ == '__main__':
     # Ensure input_dir points to the correct Papers directory
     input_dir = os.path.join(os.path.dirname(__file__), 'Papers')
-    
     process_files(input_dir)
