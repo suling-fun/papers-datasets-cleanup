@@ -1,6 +1,7 @@
 import os
 import dspy
 import dotenv
+import time
 import random
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,7 +23,7 @@ lm_04 = lm_config('openai/01-ai/Yi-1.5-34B-Chat-16K',)
 #dspy.configure(lm=lm)
 
 class Rewrite(dspy.Signature):
-    """使用相同的语言，改写用户给定的文本，使其文本风格更加学术化，逻辑更加严谨，用词更加专业，结构更加清晰。"""
+    """使用相同的文本语言，改写给定的文本，使其文本风格更加学术化，逻辑更加严谨，用词更加专业，结构更加清晰。改写时注意保留原文中的引用标签，保持相似字数。"""
     origin_text: str = dspy.InputField()
     text_language: str = dspy.OutputField()
     rewrited_text: str = dspy.OutputField()
@@ -30,13 +31,25 @@ class Rewrite(dspy.Signature):
 def process_row(row, rewrite):
     """处理单行数据的线程函数"""
     if row['is_human'] == 1:  # 只处理人工编写的文本
-        result = rewrite(origin_text=row['text'])
-        return {
-            'input': result.rewrited_text.replace('\n', ' '),
-            'output': row['text'],
-            'field': row['field'],
-            'paper_name': row['paper_name']
-        }
+        text_length = len(row['text'])
+        # 重试3次
+        for _ in range(3):
+            try:
+                result = rewrite(origin_text=row['text'])
+                break
+            except:
+                time.sleep(5)
+                continue
+        else:
+            raise Exception(f"rewrite failed: {row['text']}")
+        rewrited_text = result.rewrited_text.replace('\n', ' ')
+        if text_length * 0.7 < len(rewrited_text) < text_length * 1.35:
+            return {
+                'input': rewrited_text,
+                'output': row['text'],
+                'field': row['field'],
+                'paper_name': row['paper_name']
+            }
     return None
 
 def process_csv(input_path, output_path, start_row: int = 0, end_row: int = 100, max_workers=4):
@@ -81,8 +94,8 @@ def process_csv(input_path, output_path, start_row: int = 0, end_row: int = 100,
     new_df.to_csv(output_path, index=False)
 
 if __name__ == '__main__':
-    start_row=1000
-    end_row=2000
+    start_row=12000
+    end_row=15000
     input_csv = 'output/merged_output.csv'
     output_csv = f'output/merged_output_processed_{start_row}_{end_row}.csv'
-    process_csv(input_csv, output_csv, start_row=start_row, end_row=end_row, max_workers=4)
+    process_csv(input_csv, output_csv, start_row=start_row, end_row=end_row, max_workers=8)

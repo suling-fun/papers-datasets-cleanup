@@ -2,6 +2,35 @@ import os
 import csv
 from docx import Document
 
+def cn_punctuation(text):
+    """将与中文字符相邻的英文标点转换为中文标点"""
+    # 标点映射字典
+    punctuation_map = {
+        ',': '，',
+        '.': '。',
+        '?': '？', 
+        '!': '！',
+        ':': '：',
+        ';': '；',
+        '(': '（',
+        ')': '）',
+        '"': '“',
+        '\'':'‘'
+    }
+    
+    result = list(text)
+    for i in range(len(result)):
+        # 检查当前字符是否是需要转换的英文标点
+        if result[i] in punctuation_map:
+            # 检查前后字符是否是中文
+            prev_is_cn = (i > 0 and '\u4e00' <= result[i-1] <= '\u9fff')
+            next_is_cn = (i < len(result)-1 and '\u4e00' <= result[i+1] <= '\u9fff')
+            
+            if prev_is_cn or next_is_cn:
+                result[i] = punctuation_map[result[i]]
+                
+    return ''.join(result)
+
 def extract_paragraphs(file_path)->list[str]:
     def merge_paragraphs(text):
         # 抛弃较短段落
@@ -15,14 +44,17 @@ def extract_paragraphs(file_path)->list[str]:
                 def is_mostly_chinese(text):
                     chinese_chars = sum(1 for char in text if '\u4e00' <= char <= '\u9fff')
                     return chinese_chars / len(text) > 0.5
-                
-                # 根据结尾标点决定抛弃条件
-                if para[-1] in '。？！:：——》….?!':
-                    # 根据语言决定抛弃条件
-                    if is_mostly_chinese(para):
-                        return len(para) < 100
+                # 排除首字符不是中文和英文字母的段落
+                if para[0].isalpha():
+                    # 根据结尾标点决定抛弃条件
+                    if para[-1] in '。？！:：——》….?!':
+                        # 根据语言决定抛弃条件
+                        if is_mostly_chinese(para):
+                            return len(para) < 40
+                        else:
+                            return len(para.split()) < 20
                     else:
-                        return len(para.split()) < 50
+                        return True
                 else:
                     return True
 
@@ -30,8 +62,8 @@ def extract_paragraphs(file_path)->list[str]:
                 continue
             # 删除两个中文字符之间的空格
             para = ''.join([char for i, char in enumerate(para) if not (char == ' ' and '\u4e00' <= para[i-1] <= '\u9fff' and '\u4e00' <= para[i+1] <= '\u9fff')])
-            # 将两个中文字符之间的半角逗号“,”替换为全角逗号“，”
-            para = ''.join([char if not (char == ',' and '\u4e00' <= para[i-1] <= '\u9fff' and '\u4e00' <= para[i+1] <= '\u9fff') else '，' for i, char in enumerate(para)])
+            # 将中文字符相邻的标点符号改为中文标点符号。
+            para = cn_punctuation(para)
             merged.append(para)
             
         return merged
